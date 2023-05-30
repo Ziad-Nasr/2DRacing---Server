@@ -1,7 +1,7 @@
 import zmq
 import time
 
-localhost = "172.20.10.2"
+localhost = "10.152.107.121"
 PORT = "7878"
 ChangeCoordinates = "Coordinates"
 NewChatMessage = "Chat"
@@ -9,10 +9,12 @@ NewChatMessage = "Chat"
 
 def ChangeCordinatesRequest(Player_ID, Game_ID, Direction):
     Selected_Game_ID = 0  # Used to change the variable scope
+
     # Looping to determine which GameID to edit upon
     for Game in Data:
         if (Game["GameID"] == Game_ID):
             Selected_Game_ID = Data.index(Game)
+
     # Looping to Determine Which Player to Edit Upon
     # Data[Game][Players_Info][Player][Player Attributes]
     for Player in Data[Selected_Game_ID]["Players_Info"]:
@@ -37,11 +39,15 @@ def Publish(Type, Message):
     time.sleep(1)
     for i in range(2):
         if (Type == ChangeCoordinates):
-            print(Message)
-            socket.send_string(Message)
+            print("G "+Message)
+            socket.send_string("G " + Message)
         elif (Type == NewChatMessage):
-            socket.send_string("Chat: " + Message)
+            socket.send_string("C " + Message)
         time.sleep(1)
+
+
+def NewGame(Game_ID):
+    Data.append({"GameID": Game_ID, "Players_Info": []})
 
 
 def NewPlayer(Player_Name, Player_ID, Game_ID):
@@ -54,6 +60,8 @@ def NewPlayer(Player_Name, Player_ID, Game_ID):
         {"Name": Player_Name, "ID": Player_ID, "Position_X": 0, "Position_Y": 0})
 
 
+# =========================================
+# To be switched to Redis
 Data = [
     {
         "GameID": 1,
@@ -69,12 +77,20 @@ Data = [
         }
         ]
     }
-
 ]
+# To be switched to Redis
+# =========================================
+
+
+# print(Data)
+# NewGame(4)
+# print(Data)
+# NewPlayer("Ziad", 12, 4)
+# print(Data)
 # Data[0]["Data"].append({"Tester": 2})
 # print(Data[0]["Data"])
 # myList.append({"Name": "Hawary", "ID": 3})
 # print(myList)
 # NewPlayer("Hawary", 3, 0)
-ChangeCordinatesRequest(1, 15, "UP")
+# ChangeCordinatesRequest(12, 4, "UP")
 # print(Data)
