@@ -63,18 +63,22 @@ class Server:
             if (Game["GameID"] == game_id):
                 Selected_Game_ID = self.Data.index(Game)
         return Selected_Game_ID
+
+    def getPlayerIdx(self,game_idx,  player_id):
+        Selected_Player = -1
+        for Player in self.Data[game_id]["Players_Info"]:
+            if (Player["ID"] == player_id):
+                Selected_Player = self.Data[game_id]["Players_Info"].index(
+                    Player)
+        return Selected_Player
     
     
     def ChangeCordinatesRequest(self, Player_ID, Game_ID, Direction):
         Selected_Game_ID = self.getGameIdx(Game_ID)
+        Selected_Player = self.getPlayerIdx(Game_ID, Player_ID)
 
         # Looping to Determine Which Player to Edit Upon
         # Data[Game][Players_Info][Player][Player Attributes]
-        Selected_Player = -1
-        for Player in self.Data[Selected_Game_ID]["Players_Info"]:
-            if (Player["ID"] == Player_ID):
-                Selected_Player = self.Data[Selected_Game_ID]["Players_Info"].index(
-                    Player)
         if (Direction == "UP"):
             self.Data[Selected_Game_ID]["Players_Info"][Selected_Player]["Position_Y"] += 1
         elif (Direction == "RIGHT"):
@@ -119,12 +123,25 @@ class Server:
             msg = self.rep_socket.recv().decode()
             print("req/rep")
             print(msg)
-            game_id, msg_type = msg.split(" ")
+            data = msg.split(" ")
+            game_id = data[0]
+            msg_type = data[1]
+            if len(data) > 2:
+                data = data[2:]
             print(msg_type)
             if msg_type == self.GetState:
                 print("sending back")
                 game_idx = self.getGameIdx(game_id)
                 self.rep_socket.send(pickle.dumps(self.Data[game_idx]))
+            elif msg_type == "SS":
+                player_id = data[1]
+                x = data[2]
+                y = data[3]
+                game_idx = self.getGameIdx(game_id)
+                player_idx = self.getPlayerIdx(game_idx, player_id)
+                self.Data[game_idx]["Players_Info"][player_idx]["Position_X"] = x
+                self.Data[game_idx]["Players_Info"][player_idx]["Position_Y"] = y
+
 
     def start(self):
         t1 = Thread(target=self.listen_for_pipeline)
