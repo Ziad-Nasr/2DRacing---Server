@@ -117,8 +117,8 @@ class Server:
     
     def NewPlayer(self, Player_ID, Game_ID):
         Selected_GameID = self.getGameIdx(Game_ID)
-        x = 0
-        y = 0
+        x = len(self.Data[Selected_Game_ID]["Players_Info"]) % 5
+        y = len(self.Data[Selected_Game_ID]) // 5
         self.Data[Selected_GameID]["Players_Info"].append({"ID": Player_ID, "Position_X": x, "Position_Y": y, "Ready": 0})
         msg = "%s %s J %s %s" % (Game_ID, Player_ID, x, y)
         print("PUBLISHING " + msg)
@@ -134,6 +134,15 @@ class Server:
         other_tracker_msg = "%s %s SSR" % (Game_ID, Player_ID)
         self.pub_socket.send_string(msg)
         self.pushToTracker(self.Data[Selected_Game_ID]["Other_Tracker"], other_tracker_msg)
+
+        # if all players are ready, send start game Message
+        sendStart = True
+        for player in self.Data[Selected_Game_ID]["Players_Info"]:
+            if player["Ready"] == 0:
+                sendStart = False
+                break
+        if sendStart:
+            self.pub_socket.send_string("%s START" % Game_ID)
 
 
     def listen_for_pipeline(self):
