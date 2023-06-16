@@ -2,17 +2,34 @@ import zmq
 import time
 import pickle
 from threading import Thread
+import requests
+import json
 
 
 class Server:
+    # MY OWN IP ADDRESS
+    IP = "178.79.133.165"
+    # server ips
+    AUTH_SERVER = "178.79.139.125"
     localhost = "127.0.0.1"
+
+    # ports
     pub_PORT = "7878" # publisher port
     pull_PORT = "8787" # recieve port
     rep_PORT = "12345" # server port
+
+    # message constants
     GetState = "GS"
+    SingleState = "SS"
     ChangeCoordinates = "G"
+    Ready = "R"
+    Join = "J"
     NewChatMessage = "C"
+
+    # games data
     Data = []
+
+    # sockets
     pub_socket = None
     pull_socket = None
     rep_socket = None
@@ -20,41 +37,45 @@ class Server:
     
     def __init__(self):
         # =========================================
-        # To be switched to Redis
-        self.Data = [
-            {
-                "GameID": 1,
-                "Players_Info": [{
-                    "ID": "ziad",
-                    "Position_X": 0,
-                    "Position_Y": 0
-                },
-                {
-                    "ID": "osos",
-                    "Position_X": 0,
-                    "Position_Y": 0
-                },
-                {
-                    "ID": "hawary",
-                    "Position_X": 0,
-                    "Position_Y": 0
-                }
-                ]
-            }
-        ]
-        context = zmq.Context()
-        self.pub_socket = context.socket(zmq.PUB)
-        self.pub_socket.bind("tcp://%s:%s" % (self.localhost, self.pub_PORT))
-        self.pull_socket = context.socket(zmq.PULL)
-        self.pull_socket.bind("tcp://%s:%s" % (self.localhost, self.pull_PORT))
-        self.rep_socket = context.socket(zmq.REP)
-        self.rep_socket.bind("tcp://%s:%s" % (self.localhost, self.rep_PORT))
-        # open server ports
-    # To be switched to Redis
-    # =========================================
-    # Message: GAME_ID TYPE PLAYER_ID DATA
-    # Message: 1 C hawary Alooooooo ya geda3an
-    # Message: 1 G ziad LEFT
+        # Example Structrue
+        #self.Data = [
+        #    {
+        #        "GameID": 1,
+        #        "state": "starting" | "ongoing" | "done",
+        #        "other_tracker": "0.0.0.0",
+        #        "Players_Info": [{
+        #            "ID": "ziad",
+        #            "Position_X": 0,
+        #            "Position_Y": 0
+        #            "Ready": 0
+        #        },
+        #        {
+        #            "ID": "osos",
+        #            "Position_X": 0,
+        #            "Position_Y": 0
+        #            "Ready": 0
+        #        },
+        #        {
+        #            "ID": "hawary",
+        #            "Position_X": 0,
+        #            "Position_Y": 0
+        #            "Ready": 0
+        #        }
+        #        ]
+        #    }
+        #]
+        # =========================================
+        self.context = zmq.Context()
+        self.pub_socket = self.context.socket(zmq.PUB)
+        self.pub_socket.bind("tcp://%s:%s" % (self.IP, self.pub_PORT))
+        self.pull_socket = self.context.socket(zmq.PULL)
+        self.pull_socket.bind("tcp://%s:%s" % (self.IP, self.pull_PORT))
+        self.rep_socket = self.context.socket(zmq.REP)
+        self.rep_socket.bind("tcp://%s:%s" % (self.IP, self.rep_PORT))
+    # Message: GAME_ID PLAYER_ID TYPE DATA
+    # Message: 1 hawary C Alooooooo ya geda3an
+    # Message: 1 ziad G LEFT
+
 
     def getGameIdx(self, game_id):
         # Looping to determine which GameID to edit upon
@@ -64,45 +85,56 @@ class Server:
                 Selected_Game_ID = self.Data.index(Game)
         return Selected_Game_ID
 
+
     def getPlayerIdx(self,game_idx,  player_id):
         Selected_Player = -1
-        for Player in self.Data[game_id]["Players_Info"]:
+        for Player in self.Data[game_idx]["Players_Info"]:
             if (Player["ID"] == player_id):
-                Selected_Player = self.Data[game_id]["Players_Info"].index(
-                    Player)
+                Selected_Player = self.Data[game_idx]["Players_Info"].index(Player)
         return Selected_Player
     
     
     def ChangeCordinatesRequest(self, Player_ID, Game_ID, Direction):
         Selected_Game_ID = self.getGameIdx(Game_ID)
-        Selected_Player = self.getPlayerIdx(Game_ID, Player_ID)
-
-        # Looping to Determine Which Player to Edit Upon
-        # Data[Game][Players_Info][Player][Player Attributes]
+        Selected_Player = self.getPlayerIdx(Selected_Game_ID, Player_ID)
         if (Direction == "UP"):
             self.Data[Selected_Game_ID]["Players_Info"][Selected_Player]["Position_Y"] += 1
         elif (Direction == "RIGHT"):
             self.Data[Selected_Game_ID]["Players_Info"][Selected_Player]["Position_X"] += 1
         elif (Direction == "LEFT"):
             self.Data[Selected_Game_ID]["Players_Info"][Selected_Player]["Position_X"] -= 1
-        msg = "%s %s G %s %s" % (Game_ID, Player_ID, str(self.Data[Selected_Game_ID]["Players_Info"]
-                [Selected_Player]["Position_X"]), str(self.Data[Selected_Game_ID]["Players_Info"][Selected_Player]["Position_Y"]))
+        msg = "%s %s G %s %s" % (Game_ID, Player_ID, str(self.Data[Selected_Game_ID]["Players_Info"][Selected_Player]["Position_X"]), str(self.Data[Selected_Game_ID]["Players_Info"][Selected_Player]["Position_Y"]))
+        other_tracker_msg = "%s %s SSG %s %s" % (Game_ID, Player_ID, str(self.Data[Selected_Game_ID]["Players_Info"][Selected_Player]["Position_X"]), str(self.Data[Selected_Game_ID]["Players_Info"][Selected_Player]["Position_Y"]))
         print("sending: " + msg)
         self.pub_socket.send_string(msg)
+        self.pushToTracker(self.Data[Selected_Game_ID]["Other_Tracker"], other_tracker_msg)
     
 
-    def NewGame(self,Game_ID):
-        self.Data.append({"GameID": Game_ID, "Players_Info": []})
+    def NewGame(self,Game_ID, other_tracker):
+        print("Added Game %s With tracker %s" % (Game_ID, other_tracker))
+        self.Data.append({"GameID": Game_ID, "Other_Tracker": other_tracker, "Players_Info": []})
     
     
-    def NewPlayer(self, Player_Name, Player_ID, Game_ID):
-        Selected_GameID = 0
-        for item in Data:
-            if (item["GameID"] == Game_ID):
-                Selected_GameID = self.Data.index(item)
-        print(Selected_GameID)
-        self.Data[Selected_GameID]["Players_Info"].append(
-            {"Name": Player_Name, "ID": Player_ID, "Position_X": 0, "Position_Y": 0})
+    def NewPlayer(self, Player_ID, Game_ID):
+        Selected_GameID = self.getGameIdx(Game_ID)
+        x = 0
+        y = 0
+        self.Data[Selected_GameID]["Players_Info"].append({"ID": Player_ID, "Position_X": x, "Position_Y": y, "Ready": 0})
+        msg = "%s %s J %s %s" % (Game_ID, Player_ID, x, y)
+        print("PUBLISHING " + msg)
+        self.pub_socket.send_string(msg)
+        other_tracker_msg = "%s %s SSJ" % (Game_ID, Player_ID)
+        self.pushToTracker(self.Data[Selected_GameID]["Other_Tracker"], other_tracker_msg)
+
+    def ReadyPlayer(self, Player_ID, Game_ID):
+        Selected_Game_ID = self.getGameIdx(Game_ID)
+        Selected_Player = self.getPlayerIdx(Selected_Game_ID, Player_ID)
+        self.Data[Selected_Game_ID]["Players_Info"][Selected_Player]["Ready"] = 1
+        msg = "%s %s R" % (Game_ID, Player_ID)
+        other_tracker_msg = "%s %s SSR" % (Game_ID, Player_ID)
+        self.pub_socket.send_string(msg)
+        self.pushToTracker(self.Data[Selected_Game_ID]["Other_Tracker"], other_tracker_msg)
+
 
     def listen_for_pipeline(self):
         print("listenening for pull..")
@@ -111,11 +143,34 @@ class Server:
             print("pipeline")
             print(msg)
             data = msg.decode().split()
+            game_id = data[0]
+            player_id = data[1]
             if data[2] == self.NewChatMessage:
                 print("pushing back")
                 self.pub_socket.send(msg)
             elif data[2] == self.ChangeCoordinates:
-                self.ChangeCordinatesRequest(data[1], data[0], data[3])
+                self.ChangeCordinatesRequest(player_id, game_id, data[3])
+            elif data[2] == self.Join:
+                self.NewPlayer(player_id, game_id)
+            elif data[2] == self.Ready:
+                self.ReadyPlayer(player_id, game_id)
+            elif data[2] == "SG":
+                self.NewGame(game_id, data[3])
+            elif data[2] == self.SingleState+self.ChangeCoordinates: # game_id player_id SSG x y
+                x = data[3]
+                y = data[4]
+                game_idx = self.getGameIdx(game_id)
+                player_idx = self.getPlayerIdx(game_idx, player_id)
+                self.Data[game_idx]["Players_Info"][player_idx]["Position_X"] = x
+                self.Data[game_idx]["Players_Info"][player_idx]["Position_Y"] = y
+            elif data[2] == self.SingleState+self.Join: # game_id player_id SSJ
+                game_idx = self.getGameIdx(game_id)
+                self.Data[game_idx]["Players_Info"].append({"ID": player_id, "Position_X": 0, "Position_Y": 0, "Ready": 0})
+            elif data[2] == self.SingleState+self.Ready: # game_id player_id SSR
+                game_idx = self.getGameIdx(game_id)
+                player_idx = self.getPlayerIdx(game_idx, player_id)
+                self.Data[game_idx]["Players_Info"][player_idx]["ready"] = 1
+
 
     def listen_for_reply(self):
         print("listening for reply..")
@@ -133,21 +188,40 @@ class Server:
                 print("sending back")
                 game_idx = self.getGameIdx(game_id)
                 self.rep_socket.send(pickle.dumps(self.Data[game_idx]))
-            elif msg_type == "SS":
-                player_id = data[1]
-                x = data[2]
-                y = data[3]
-                game_idx = self.getGameIdx(game_id)
-                player_idx = self.getPlayerIdx(game_idx, player_id)
-                self.Data[game_idx]["Players_Info"][player_idx]["Position_X"] = x
-                self.Data[game_idx]["Players_Info"][player_idx]["Position_Y"] = y
 
+
+    def pushToTracker(self, tracker, msg):
+        s = self.context.socket(zmq.PUSH)
+        s.connect("tcp://%s:%s" % (tracker, self.pull_PORT))
+        s.send_string(msg)
+
+
+    def getGame(self, game_id, tracker):
+        s = self.context.socket(zmq.REQ)
+        s.connect("tcp://%s:%s" % (tracker, self.rep_PORT))
+        s.send_string(str(game_id) + " " + self.GetState)
+        game = pickle.loads(s.recv())
+        self.Data.append(game)
+
+
+    def getMyGames(self):
+        res = requests.post("http://"+self.AUTH_SERVER+":5000/list_tracker_games", data={"ip": self.IP})
+        games = json.loads(res.text)
+        for game in games:
+            game_id = game[0]
+            tracker_1 = game[3]
+            tracker_2 = game[4]
+            if tracker_1 == self.IP:
+                self.getGame(game_id, tracker_2)
+            else:
+                self.getGame(game_id, tracker_1)
 
     def start(self):
         t1 = Thread(target=self.listen_for_pipeline)
         t2 = Thread(target=self.listen_for_reply)
         t1.start()
         t2.start()
+        self.getMyGames()
 
 if __name__ == "__main__":
     server = Server()
