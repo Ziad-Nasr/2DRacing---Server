@@ -19,4 +19,5 @@ disown $(python Tracker.py) &
 ```
 
 Please note: you need to change the value of IP to be your server's ip address.
+Please note: The tracker assumes that AUTH_SERVER points to the ip address hosting and running an Auth Server. If you don't know what an Auth server is look at [this repo](https://github.com/Ziad-Nasr/Multiplayer-2DCarRacing).
 
