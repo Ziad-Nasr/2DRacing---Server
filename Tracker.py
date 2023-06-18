@@ -11,7 +11,6 @@ class Server:
     IP = "178.79.133.165"
     # server ips
     AUTH_SERVER = "178.79.139.125"
-    localhost = "127.0.0.1"
 
     # ports
     pub_PORT = "7878" # publisher port
@@ -104,7 +103,7 @@ class Server:
         elif (Direction == "LEFT"):
             self.Data[Selected_Game_ID]["Players_Info"][Selected_Player]["Position_X"] -= 1
 
-        if self.Data[Selected_Game_ID]["Players_Info"][Selected_Player]["Position_Y"] >= 100:
+        if self.Data[Selected_Game_ID]["Players_Info"][Selected_Player]["Position_Y"] > 100:
             msg = "%s STOP" % (Game_ID)
             self.pub_socket.send_string(msg)
             self.pushToTracker(self.Data[Selected_Game_ID]["Other_Tracker"], msg)
@@ -126,8 +125,8 @@ class Server:
     
     def NewPlayer(self, Player_ID, Game_ID):
         Selected_GameID = self.getGameIdx(Game_ID)
-        x = (len(self.Data[Selected_GameID]["Players_Info"]) % 5) + 1
-        y = len(self.Data[Selected_GameID]) // 5
+        x = (len(self.Data[Selected_GameID]["Players_Info"]) % 4) + 1
+        y = len(self.Data[Selected_GameID]) // 4
         self.Data[Selected_GameID]["Players_Info"].append({"ID": Player_ID, "Position_X": x, "Position_Y": y, "Ready": 0})
         msg = "%s %s J %s %s" % (Game_ID, Player_ID, x, y)
         print("PUBLISHING " + msg)
